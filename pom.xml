@@ -64,6 +64,13 @@
             <version>2.1.0</version>
         </dependency>
         
+        <!-- Chaos Monkey for Spring Boot -->
+        <dependency>
+            <groupId>de.codecentric</groupId>
+            <artifactId>chaos-monkey-spring-boot</artifactId>
+            <version>3.1.0</version>
+        </dependency>
+        
         <!-- Micrometer y Prometheus -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
