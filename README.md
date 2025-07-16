@@ -111,14 +111,4 @@ k6 run stress-test.js
 
 ## 📄 Licencia
 
-Este proyecto está bajo la Licencia MIT. Ver el archivo [LICENSE](LICENSE) para más detalles.
-
-## 🤝 Contribución
-
-Las contribuciones son bienvenidas. Por favor, lee las [pautas de contribución](CONTRIBUTING.md) para más información.
-
-## 📧 Contacto
-
-[Tu nombre] - [tu@email.com]
-
-Enlace del proyecto: [https://github.com/tu-usuario/ResilenciaSpringboot](https://github.com/tu-usuario/ResilenciaSpringboot)
+Este proyecto libre que puedes usar como base para tu propia aplicación.
