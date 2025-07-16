@@ -7,6 +7,8 @@ import io.github.resilience4j.retry.annotation.Retry;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.example.vehiculosapi.config.MetricsConfig;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -19,8 +21,18 @@ public class VehiculoService {
     private static final Logger logger = LoggerFactory.getLogger(VehiculoService.class);
     private static final String VEHICULO_SERVICE = "vehiculoService";
 
+    private final VehiculoRepository vehiculoRepository;
+    private final MetricsConfig metricsConfig;
+    private final MeterRegistry meterRegistry;
+
     @Autowired
-    private VehiculoRepository vehiculoRepository;
+    public VehiculoService(VehiculoRepository vehiculoRepository, 
+                          MetricsConfig metricsConfig,
+                          MeterRegistry meterRegistry) {
+        this.vehiculoRepository = vehiculoRepository;
+        this.metricsConfig = metricsConfig;
+        this.meterRegistry = meterRegistry;
+    }
     
     // Simulador de fallos para pruebas
     private boolean simularFallo = false;
@@ -28,57 +40,73 @@ public class VehiculoService {
     @CircuitBreaker(name = VEHICULO_SERVICE, fallbackMethod = "obtenerTodosFallback")
     @Retry(name = VEHICULO_SERVICE, fallbackMethod = "obtenerTodosFallback")
     public List<Vehiculo> obtenerTodos() {
-        simularErrorAleatorio();
-        return vehiculoRepository.findAll();
+        return metricsConfig.recordOperationTime(() -> {
+            simularErrorAleatorio();
+            meterRegistry.counter("vehiculo.operacion", "tipo", "consulta").increment();
+            return vehiculoRepository.findAll();
+        }, "obtenerTodos");
     }
 
     @CircuitBreaker(name = VEHICULO_SERVICE, fallbackMethod = "obtenerPorIdFallback")
     @Retry(name = VEHICULO_SERVICE, fallbackMethod = "obtenerPorIdFallback")
     public Vehiculo obtenerPorId(Long id) {
-        simularErrorAleatorio();
-        return vehiculoRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Vehículo no encontrado con ID: " + id));
+        return metricsConfig.recordOperationTime(() -> {
+            simularErrorAleatorio();
+            meterRegistry.counter("vehiculo.operacion", "tipo", "consulta_por_id").increment();
+            return vehiculoRepository.findById(id)
+                    .orElseThrow(() -> new EntityNotFoundException("Vehículo no encontrado con ID: " + id));
+        }, "obtenerPorId");
     }
 
     @CircuitBreaker(name = VEHICULO_SERVICE, fallbackMethod = "crearFallback")
     @Retry(name = VEHICULO_SERVICE, fallbackMethod = "crearFallback")
     public Vehiculo crear(Vehiculo vehiculo) {
-        simularErrorAleatorio();
-        if (vehiculoRepository.existsByPlaca(vehiculo.getPlaca())) {
-            throw new IllegalArgumentException("Ya existe un vehículo con la placa: " + vehiculo.getPlaca());
-        }
-        return vehiculoRepository.save(vehiculo);
+        return metricsConfig.recordOperationTime(() -> {
+            simularErrorAleatorio();
+            meterRegistry.counter("vehiculo.operacion", "tipo", "crear").increment();
+            if (vehiculoRepository.existsByPlaca(vehiculo.getPlaca())) {
+                throw new IllegalArgumentException("Ya existe un vehículo con la placa: " + vehiculo.getPlaca());
+            }
+            return vehiculoRepository.save(vehiculo);
+        }, "crear");
     }
 
     @CircuitBreaker(name = VEHICULO_SERVICE, fallbackMethod = "actualizarFallback")
     @Retry(name = VEHICULO_SERVICE, fallbackMethod = "actualizarFallback")
     public Vehiculo actualizar(Long id, Vehiculo vehiculoActualizado) {
-        simularErrorAleatorio();
-        return vehiculoRepository.findById(id)
-                .map(vehiculo -> {
-                    if (!vehiculo.getPlaca().equals(vehiculoActualizado.getPlaca()) && 
-                        vehiculoRepository.existsByPlaca(vehiculoActualizado.getPlaca())) {
-                        throw new IllegalArgumentException("Ya existe un vehículo con la placa: " + vehiculoActualizado.getPlaca());
-                    }
-                    vehiculo.setMarca(vehiculoActualizado.getMarca());
-                    vehiculo.setModelo(vehiculoActualizado.getModelo());
-                    vehiculo.setAnio(vehiculoActualizado.getAnio());
-                    vehiculo.setColor(vehiculoActualizado.getColor());
-                    vehiculo.setPlaca(vehiculoActualizado.getPlaca());
-                    vehiculo.setPrecio(vehiculoActualizado.getPrecio());
-                    return vehiculoRepository.save(vehiculo);
-                })
-                .orElseThrow(() -> new EntityNotFoundException("Vehículo no encontrado con ID: " + id));
+        return metricsConfig.recordOperationTime(() -> {
+            simularErrorAleatorio();
+            meterRegistry.counter("vehiculo.operacion", "tipo", "actualizar").increment();
+            return vehiculoRepository.findById(id)
+                    .map(vehiculo -> {
+                        if (!vehiculo.getPlaca().equals(vehiculoActualizado.getPlaca()) && 
+                            vehiculoRepository.existsByPlaca(vehiculoActualizado.getPlaca())) {
+                            throw new IllegalArgumentException("Ya existe un vehículo con la placa: " + vehiculoActualizado.getPlaca());
+                        }
+                        vehiculo.setMarca(vehiculoActualizado.getMarca());
+                        vehiculo.setModelo(vehiculoActualizado.getModelo());
+                        vehiculo.setAnio(vehiculoActualizado.getAnio());
+                        vehiculo.setColor(vehiculoActualizado.getColor());
+                        vehiculo.setPlaca(vehiculoActualizado.getPlaca());
+                        vehiculo.setPrecio(vehiculoActualizado.getPrecio());
+                        return vehiculoRepository.save(vehiculo);
+                    })
+                    .orElseThrow(() -> new EntityNotFoundException("Vehículo no encontrado con ID: " + id));
+        }, "actualizar");
     }
 
     @CircuitBreaker(name = VEHICULO_SERVICE, fallbackMethod = "eliminarFallback")
     @Retry(name = VEHICULO_SERVICE, fallbackMethod = "eliminarFallback")
     public void eliminar(Long id) {
-        simularErrorAleatorio();
-        if (!vehiculoRepository.existsById(id)) {
-            throw new EntityNotFoundException("Vehículo no encontrado con ID: " + id);
-        }
-        vehiculoRepository.deleteById(id);
+        metricsConfig.recordOperationTime(() -> {
+            simularErrorAleatorio();
+            meterRegistry.counter("vehiculo.operacion", "tipo", "eliminar").increment();
+            if (!vehiculoRepository.existsById(id)) {
+                throw new EntityNotFoundException("Vehículo no encontrado con ID: " + id);
+            }
+            vehiculoRepository.deleteById(id);
+            return null;
+        }, "eliminar");
     }
 
     // Métodos de fallback
